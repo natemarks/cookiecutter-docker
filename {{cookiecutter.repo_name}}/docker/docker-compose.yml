@@ -1,0 +1,16 @@
+version: "3.7"
+services:
+  {{ cookiecutter.project_name }}:
+    image: {{ cookiecutter.project_name }}
+    network_mode: host
+    build: {{ cookiecutter.project_name }}
+    command: python app.py
+    ports:
+     - "5000:5000"
+    volumes:
+     - ./web:/code # modified here to take into account the new app path
+    links:
+     - redis
+    environment:
+     - GPG_DECRYPTION_KEY
+     - PROJECT_DIRECTORY="/{{ cookiecutter.project_name }}"
