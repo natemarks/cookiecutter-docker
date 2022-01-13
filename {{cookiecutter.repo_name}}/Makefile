@@ -1,56 +1,60 @@
-COMPOSE_RUN_NODE = docker-compose run --rm node
-COMPOSE_UP_NODE = docker-compose up -d node
-COMPOSE_UP_NODE_DEV = docker-compose up node_dev
-COMPOSE_RUN_SHELLCHECK = docker-compose run --rm shellcheck
-COMPOSE_RUN_DOCKERIZE = docker-compose run --rm dockerize
-COMPOSE_RUN_TESTCAFE = docker-compose run --rm testcafe
-ENVFILE ?= env.template
+.DEFAULT_GOAL := help
+DEFAULT_BRANCH := main
+ROLE_DIR := $(shell basename $(CURDIR))
 
-all:
-	ENVFILE=env.example $(MAKE) envfile cleanDocker deps lint start test build clean
+# Determine this makefile's path.
+# Be sure to place this BEFORE `include` directives, if any.
+THIS_FILE := $(lastword $(MAKEFILE_LIST))
+VERSION := 0.0.0
+#  use the long commit id
+COMMIT := $(shell git rev-parse HEAD)
 
-onPullRequest: envfile cleanDocker deps lint start test build clean
 
-onMasterChange: envfile cleanDocker deps lint start test build deploy clean
 
-envfile:
-	cp -f $(ENVFILE) .env
+help: ## Show this help.
+	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -e 's/##//'
 
-deps:
-	docker-compose pull node testcafe dockerize shellcheck
-	$(COMPOSE_RUN_NODE) yarn install
+clean-venv: ## re-create virtual env
+	rm -rf .venv
+	python3 -m venv .venv
+	( \
+       . .venv/bin/activate; \
+       pip install --upgrade pip setuptools; \
+    )
 
-shellNode:
-	$(COMPOSE_RUN_NODE) bash
+git-status: ## require status is clean so we can use undo_edits to put things back
+	@status=$$(git status --porcelain); \
+	if [ ! -z "$${status}" ]; \
+	then \
+		echo "Error - working directory is dirty. Commit those changes!"; \
+		exit 1; \
+	fi
 
-shellTestCafe:
-	$(COMPOSE_RUN_TESTCAFE) sh
+undo_edits: ## undo staged and unstaged change. ohmyzsh alias: grhh
+	git reset --hard
 
-startDev:
-	$(COMPOSE_UP_NODE_DEV)
+rebase: git-status ## rebase current feature branch on to the default branch
+	git fetch && git rebase origin/$(DEFAULT_BRANCH)
 
-start:
-	$(COMPOSE_UP_NODE)
-	$(COMPOSE_RUN_DOCKERIZE) -wait tcp://node:8080 -timeout 60s
+compose-up:
+	docker-compose up -d
 
-lint:
-	$(COMPOSE_RUN_SHELLCHECK) scripts/*.sh
-	$(COMPOSE_RUN_NODE) yarn eslint test/*.ts
+compose-down:
+	docker-compose down
 
-test:
-	$(COMPOSE_RUN_TESTCAFE) scripts/test.sh
-.PHONY: test
+shellcheck:
+	find . -type f -name "*.sh" -exec "shellcheck" "--format=gcc" {} \;
 
-build:
-	$(COMPOSE_RUN_NODE) scripts/build.sh
+bump: git-status ## bump version in main branch
+ifeq ($(CURRENT_BRANCH), $(MAIN_BRANCH))
+	( \
+	   . .venv/bin/activate; \
+	   pip install bump2version; \
+	   bump2version $(part); \
+	)
+else
+	@echo "UNABLE TO BUMP - not on Main branch"
+	$(info Current Branch: $(CURRENT_BRANCH), main: $(MAIN_BRANCH))
+endif
 
-deploy:
-	$(COMPOSE_RUN_NODE) scripts/deploy.sh
-
-cleanDocker:
-	docker-compose down --remove-orphans
-
-clean:
-	$(COMPOSE_RUN_NODE) scripts/clean.sh
-	$(MAKE) cleanDocker
-	rm -f .env
+.PHONY: static shellcheck test
