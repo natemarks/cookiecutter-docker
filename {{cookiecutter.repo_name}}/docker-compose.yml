@@ -1,0 +1,30 @@
+version: "3.7"
+services:
+  {{ cookiecutter.image1 }}:
+    image: {{ cookiecutter.image1 }}
+    network_mode: host
+    build: {{ cookiecutter.image1 }}
+    command: python app.py
+    ports:
+     - "5000:5000"
+    volumes:
+     - ./web:/code # modified here to take into account the new app path
+    links:
+     - redis
+    environment:
+     - GPG_DECRYPTION_KEY
+     - PROJECT_DIRECTORY="/{{ cookiecutter.project_name }}"
+  {{ cookiecutter.image2 }}:
+    image: {{ cookiecutter.image2 }}
+    network_mode: host
+    build: {{ cookiecutter.image2 }}
+    command: python app.py
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./web:/code # modified here to take into account the new app path
+    links:
+      - redis
+    environment:
+      - GPG_DECRYPTION_KEY
+      - PROJECT_DIRECTORY="/{{ cookiecutter.project_name }}"

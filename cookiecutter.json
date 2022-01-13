@@ -1,0 +1,11 @@
+{
+  "full_name": "Nate Marks",
+  "email": "npmarks@gmail.com",
+  "github_username": "natemarks",
+  "project_name": "some_project",
+  "repo_name": "docker-{{ cookiecutter.project_name|lower|replace(' ','-') }}",
+  "image1": "some-image-name",
+  "image2": "another-image-name",
+  "base_docker_image": "python:3.10.1-buster"
+}
+
