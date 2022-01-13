@@ -1,2 +1,6 @@
+
+.idea/
+.vscode/
+*.iml
 .env
 .venv/
