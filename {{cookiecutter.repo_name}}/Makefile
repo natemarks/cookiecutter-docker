@@ -8,7 +8,7 @@ THIS_FILE := $(lastword $(MAKEFILE_LIST))
 VERSION := 0.0.0
 #  use the long commit id
 COMMIT := $(shell git rev-parse HEAD)
-
+AWS_ACCOUNT_ID := $(shell aws sts get-caller-identity --output text | awk '{print $$1}')
 
 
 help: ## Show this help.
@@ -56,5 +56,35 @@ else
 	@echo "UNABLE TO BUMP - not on Main branch"
 	$(info Current Branch: $(CURRENT_BRANCH), main: $(MAIN_BRANCH))
 endif
+
+build: git-status ## push images to registry and upload python package to artifacts
+	( \
+       docker build --tag $(CONTROLLER)-appd-db-agent:$(AGENT_VERSION) appd-db-agent; \
+    )
+
+docker-run:  ##  run wiht docker run
+	docker run -d --rm --memory=3g \
+	--name=$(CONTROLLER)-appd-db-agent \
+	-e DB_AGENT_NAME="$(DB_AGENT_NAME)" \
+	$(CONTROLLER)-appd-db-agent:$(AGENT_VERSION); \
+
+docker-stop:  ##  run wiht docker run
+	docker stop $(CONTROLLER)-appd-db-agent
+
+docker-login:
+	$$(aws ecr get-login --no-include-email  --region us-east-1)
+
+docker-pull: docker-login  ## pull the image from ecr
+	( \
+       docker pull $(AWS_ACCOUNT_ID).dkr.ecr.us-east-1.amazonaws.com/$(CONTROLLER)-appd-db-agent:$(AGENT_VERSION); \
+       docker tag $(AWS_ACCOUNT_ID).dkr.ecr.us-east-1.amazonaws.com/$(CONTROLLER)-appd-db-agent:$(AGENT_VERSION) $(CONTROLLER)-appd-db-agent:$(AGENT_VERSION); \
+    )
+
+upload_to_ecr: docker-login ## push images to registry and upload python package to artifacts
+	( \
+       docker tag $(CONTROLLER)-appd-db-agent:$(AGENT_VERSION) $(AWS_ACCOUNT_ID).dkr.ecr.us-east-1.amazonaws.com/$(CONTROLLER)-appd-db-agent:$(AGENT_VERSION); \
+       docker push $(AWS_ACCOUNT_ID).dkr.ecr.us-east-1.amazonaws.com/$(CONTROLLER)-appd-db-agent:$(AGENT_VERSION); \
+    )
+
 
 .PHONY: static shellcheck test
